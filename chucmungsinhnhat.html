@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Happy Birthday</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #f4f4f4;
+    }
+
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 1000px;
+      height: auto;
+      overflow: hidden;
+      background-color: #ffffff;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+    }
+
+    .left,
+    .right {
+      padding: 20px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .left {
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: url('THƯ CHÚC SINH NHẬT.png') no-repeat center center;
+      background-size: cover;
+      text-align: center;
+      border-right: 1.5px solid #ffffff;
+    }
+
+    .left img {
+      width: 200px;
+      height: 200px;
+      border: 2px solid gold;
+      border-radius: 50%;
+      margin-bottom: 20px;
+    }
+
+
+    .birthday-title {
+      font-size: 24px;
+      font-family: 'Verdana', serif;
+    }
+
+    .name {
+      font-size: 26px;
+      color: gold;
+      font-family: 'Calibri', serif;
+      font-weight: bolder;
+      text-shadow: 5px 5px 10px gold;
+    }
+
+    .right {
+      justify-content: center;
+      padding: 25px 20px;
+      width: 100%;
+      background: url('THƯ CHÚC SINH NHẬT (1).png') no-repeat center center;
+      background-size: cover;
+      color: #ffffff;
+    }
+
+    .rightnho {
+      padding: 20px;
+      border: 5px solid #ffffff;
+    }
+
+    .right p {
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+
+
+    .logohoi {
+      width: 100px;
+      margin-bottom: 20px;
+    }
+
+    .hpbd {
+      width: 190px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 14px;
+      color: #ffffff;
+      margin-bottom: 110px;
+    }
+
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      font-size: 24px;
+      z-index: 1000;
+    }
+
+    #error-container {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      padding: 10px;
+      background-color: rgba(255, 0, 0, 0.7);
+      color: white;
+      border-radius: 5px;
+      font-size: 12px;
+      max-width: 80%;
+      z-index: 1000;
+      display: none;
+    }
+
+    @media (min-width: 768px) {
+      .card {
+        flex-direction: row;
+      }
+
+      .left,
+      .right {
+        width: 50%;
+      }
+
+      .left img {
+        width: 300px;
+        height: 400px;
+      }
+
+      .birthday-title {
+        font-size: 40px;
+      }
+
+      .name {
+        font-size: 42px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="loading">Đang tải dữ liệu...</div>
+  <div id="error-container"></div>
+
+  <div class="container" style="display: none;">
+    <div class="card">
+      <div class="left">
+        <img id="profile-image" src="default-profile.jpg" alt="Profile Image">
+        <div class="birthday-title">Happy Birthday</div> <br>
+        <div class="name" id="name"></div>
+      </div>
+      <div class="right">
+        <div class="rightnho">
+          <center><img src="Logo Hôi không nền.png" alt="Logohoi" class="logohoi"></center>
+          <center><img src="hpbd.png" alt="hpbd" class="hpbd"></center>
+          <p>&emsp;Hội Doanh nhân Thái Bình miền Nam chúc mừng sinh nhật bạn, Hội mong rằng, là hội viên và
+            việc đồng hành cùng Hội của bạn sẽ là Động Lực để bạn YÊU THÍCH TUỔI MỚI.</p>
+          <p>&emsp;Chúc bạn sinh nhật vui vẻ!</p>
+          <div class="footer">
+            <p>Thường trực Hội DNTBMN.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button id="capture-btn" style="display: none;">Chụp trang này</button>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script>
+    // Constants for AppSheet connection
+    const appId = '4dc0f883-9c1c-4d4a-81aa-4bd7971b78dd';
+    const accessKey = 'V2-W3bVS-xCeBf-DSk9A-U3pVV-B5C41-0gBhu-Z1bQL-j6kNl';
+    const region = 'www';
+    const appName = 'HDNTháiBìnhMiềnNam-925719472';
+
+    // Utility function to show errors
+    function showError(message) {
+      const errorContainer = document.getElementById('error-container');
+      errorContainer.textContent = message;
+      errorContainer.style.display = 'block';
+      console.error(message);
+
+      setTimeout(() => {
+        errorContainer.style.display = 'none';
+      }, 10000);
+    }
+
+    // Function to convert image name to URL
+    function getImageUrl(fileName) {
+      if (!fileName) return 'default-profile.jpg';
+
+      const cleanFileName = fileName.trim();
+      const baseUrl = 'https://www.appsheet.com/template/gettablefileurl';
+      const params = new URLSearchParams({
+        appName: appName,
+        tableName: 'HV_NCC_KH',
+        fileName: cleanFileName
+      });
+
+      return `${baseUrl}?${params.toString()}`;
+    }
+
+    // Function to convert an image URL to Data URL to avoid CORS issues
+    function convertImageToDataURL(imageUrl, callback) {
+      const img = new Image();
+      img.crossOrigin = "Anonymous"; // Try with this first
+
+      img.onload = function () {
+        // Create canvas and convert image to data URL
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        try {
+          // Convert to data URL
+          const dataURL = canvas.toDataURL('image/png');
+          callback(dataURL);
+        } catch (e) {
+          console.error("Không thể chuyển đổi hình ảnh sang Data URL", e);
+          callback('default-profile.jpg');
+        }
+      };
+
+      img.onerror = function () {
+        console.error("Không thể tải hình ảnh:", imageUrl);
+        showError(`Không thể tải hình ảnh từ: ${imageUrl}`);
+        callback('default-profile.jpg');
+      };
+
+      // Add a random parameter to bypass cache
+      img.src = imageUrl + (imageUrl.includes('?') ? '&' : '?') + 'nocache=' + Math.random();
+
+      // If the image fails to load with crossOrigin, try using a proxy
+      setTimeout(function () {
+        if (!img.complete || img.naturalWidth === 0) {
+          console.log("Thử lại với proxy...");
+          img.crossOrigin = null;
+          // You can add a CORS proxy here if needed
+          // img.src = 'https://your-cors-proxy.com/' + encodeURIComponent(imageUrl);
+        }
+      }, 2000);
+    }
+
+    // Function to fetch data from AppSheet
+    async function fetchData() {
+      try {
+        const response = await fetch(`https://${region}.appsheet.com/api/v2/apps/${appId}/tables/HV_NCC_KH/Action`, {
+          method: 'POST',
+          headers: {
+            'ApplicationAccessKey': accessKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            Action: 'Find',
+            Properties: {},
+            Selector: "Filter(HV_NCC_KH, true)"
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid data format received');
+        }
+
+        console.log("Fetched data:", data);
+        return data;
+      } catch (error) {
+        showError(`Lỗi khi tải dữ liệu: ${error.message}`);
+        throw error;
+      }
+    }
+
+    // Function to get URL parameters
+    function getUrlParameter(name) {
+      name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+      const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+      const results = regex.exec(location.search);
+      return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+    }
+
+    // Initialize the page with data
+    async function initialize() {
+      try {
+        const userId = getUrlParameter('id');
+
+        if (!userId) {
+          throw new Error('Không tìm thấy ID người dùng trong URL. Vui lòng thêm tham số ?id=xxx');
+        }
+
+        console.log(`Đang tìm người dùng với ID: ${userId}`);
+
+        const allData = await fetchData();
+        const userData = allData.find(item => item['Mã'] === userId);
+
+        if (!userData) {
+          throw new Error(`Không tìm thấy hội viên với mã: ${userId}`);
+        }
+
+        console.log("User data found:", userData);
+
+        // Update the UI with the user data
+        document.getElementById('name').textContent = userData['Tên hội viên'] || 'Chưa có tên';
+
+        // Handle the profile image
+        if (userData['Hình hội viên']) {
+          console.log("Raw image data:", userData['Hình hội viên']);
+          const imageUrl = getImageUrl(userData['Hình hội viên']);
+          console.log("Processed image URL:", imageUrl);
+
+          // Convert the image URL to data URL to avoid CORS issues
+          convertImageToDataURL(imageUrl, function (dataUrl) {
+            document.getElementById('profile-image').src = dataUrl;
+
+            // Only show capture button after image is loaded
+            document.getElementById('loading').style.display = 'none';
+            document.querySelector('.container').style.display = 'flex';
+            document.getElementById('capture-btn').style.display = 'block';
+          });
+        } else {
+          document.getElementById('profile-image').src = 'default-profile.jpg';
+
+          // Show content if no image needed
+          document.getElementById('loading').style.display = 'none';
+          document.querySelector('.container').style.display = 'flex';
+          document.getElementById('capture-btn').style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Error during initialization:', error);
+        document.getElementById('loading').textContent = `Lỗi: ${error.message}`;
+      }
+    }
+
+    // Function for test mode
+    function testCard(name, imageUrl) {
+      document.getElementById('name').textContent = name || 'Tên Người Dùng Test';
+
+      if (imageUrl) {
+        // Convert test image to data URL as well
+        convertImageToDataURL(imageUrl, function (dataUrl) {
+          document.getElementById('profile-image').src = dataUrl;
+
+          // Show content
+          document.getElementById('loading').style.display = 'none';
+          document.querySelector('.container').style.display = 'flex';
+          document.getElementById('capture-btn').style.display = 'block';
+        });
+      } else {
+        document.getElementById('profile-image').src = 'default-profile.jpg';
+
+        // Show content
+        document.getElementById('loading').style.display = 'none';
+        document.querySelector('.container').style.display = 'flex';
+        document.getElementById('capture-btn').style.display = 'block';
+      }
+    }
+
+    // Initialize when page loads
+    window.addEventListener('DOMContentLoaded', function () {
+      // Check for test mode
+      const testMode = getUrlParameter('test');
+      if (testMode === 'true') {
+        const testName = getUrlParameter('name') || 'ĐÀO QUANG VƯƠNG';
+        const testImage = getUrlParameter('image') || '';
+        testCard(testName, testImage);
+      } else {
+        initialize();
+      }
+    });
+
+    // Capture button functionality
+    document.getElementById('capture-btn').addEventListener('click', function () {
+      html2canvas(document.querySelector('.container'), {
+        useCORS: true,
+        allowTaint: true,
+        logging: true
+      }).then(function (canvas) {
+        let name = document.getElementById('name').innerText;
+        let fileName = name.replace(/\s+/g, '_') + '_HPBD.png';
+
+        let link = document.createElement('a');
+        link.download = fileName;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }).catch(function (error) {
+        console.error("Lỗi khi chụp hình:", error);
+        showError("Không thể chụp hình: " + error.message);
+      });
+    });
+  </script>
+</body>
+
+</html>

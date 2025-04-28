@@ -689,27 +689,33 @@
                     const imageStyle = memberImageSrc ?
                         `
                 position: absolute; 
-                top: 40%; 
-                left: 50%; 
-                transform: translate(-50%, -50%); 
-                width: 230px; 
-                height: 230px; 
-                object-fit: cover; 
-                border: 2px solid gold; 
-                border-radius: 50%;
+    top: 40%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    max-width: 220px; 
+    max-height: 220px; 
+    width: auto;
+    height: auto;
+    object-fit: contain; 
+    border: 2px solid gold; 
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
                 ` : '';
 
                     // Tạo khung vàng để chứa hình (nếu không có hình thì khung vẫn hiển thị)
                     const squareStyle = `
                 position: absolute; 
-                top: 40%; 
-                left: 50%; 
-                transform: translate(-50%, -50%); 
-                width: 230px; 
-                height: 230px; 
-                object-fit: cover; 
-                border: 2px solid gold; 
-                border-radius: 50%;
+    top: 40%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    max-width: 220px; 
+    max-height: 220px; 
+    width: auto;
+    height: auto;
+    object-fit: contain; 
+    border: 2px solid gold; 
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
                 ${!memberImageSrc ? 'background-color: rgba(255, 255, 255, 0.1);' : ''}
             `;
 

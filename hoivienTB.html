@@ -631,10 +631,17 @@
 
         // Thêm hàm convertImageToDataURL
         function convertImageToDataURL(imageUrl, callback) {
+            // Thử sử dụng proxy CORS nếu có thể
+            const corsProxyUrl = 'https://corsproxy.io/?';
+            const urlToFetch = corsProxyUrl + encodeURIComponent(imageUrl);
+
+            console.log("Đang tải hình từ URL:", urlToFetch);
+
             const img = new Image();
             img.crossOrigin = "Anonymous";
 
             img.onload = function () {
+                console.log("Hình đã tải xong, kích thước:", img.width, "x", img.height);
                 const canvas = document.createElement('canvas');
                 canvas.width = img.width;
                 canvas.height = img.height;
@@ -646,18 +653,44 @@
                     const dataURL = canvas.toDataURL('image/png');
                     callback(dataURL);
                 } catch (e) {
-                    console.error("Không thể chuyển đổi hình ảnh sang Data URL", e);
+                    console.error("Không thể chuyển đổi hình ảnh sang Data URL:", e);
                     callback(null);
                 }
             };
 
             img.onerror = function () {
-                console.error("Không thể tải hình ảnh:", imageUrl);
-                callback(null);
+                console.error("Không thể tải hình ảnh, thử lại với URL gốc");
+                // Thử lại với URL gốc
+                const imgRetry = new Image();
+                imgRetry.crossOrigin = "Anonymous";
+
+                imgRetry.onload = function () {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = imgRetry.width;
+                    canvas.height = imgRetry.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(imgRetry, 0, 0);
+
+                    try {
+                        const dataURL = canvas.toDataURL('image/png');
+                        callback(dataURL);
+                    } catch (e) {
+                        console.error("Không thể chuyển đổi hình lần thứ 2:", e);
+                        callback(null);
+                    }
+                };
+
+                imgRetry.onerror = function () {
+                    console.error("Không thể tải hình ảnh lần thứ 2:", imageUrl);
+                    callback(null);
+                };
+
+                // Thêm tham số ngẫu nhiên để tránh cache
+                imgRetry.src = imageUrl + (imageUrl.includes('?') ? '&' : '?') + 'nocache=' + Math.random();
             };
 
             // Thêm tham số ngẫu nhiên để tránh cache
-            img.src = imageUrl + (imageUrl.includes('?') ? '&' : '?') + 'nocache=' + Math.random();
+            img.src = urlToFetch + '&nocache=' + Math.random();
         }
 
         // Sửa hàm generateInvitationCards
@@ -782,7 +815,6 @@
             invitationModal.show();
         }
 
-        // Cải tiến tải ảnh hiện tại
         $('#downloadCurrentBtn').on('click', async function () {
             try {
                 // Hiện trạng thái đang tải
@@ -794,18 +826,27 @@
                 const memberIndex = $('.carousel-item.active').data('index');
                 const memberName = selectedMembers[memberIndex]['Tên hội viên'] || 'invitation';
 
-                // Sử dụng promises để đảm bảo tải ảnh xong trước khi chụp
-                await new Promise((resolve) => {
-                    const bgImg = activeSlide.querySelector('.invitation-bg');
+                console.log("Đang tải ảnh hiện tại cho: " + memberName);
 
-                    if (bgImg.complete) {
-                        resolve();
-                    } else {
-                        bgImg.onload = resolve;
-                        // Trong trường hợp lỗi, vẫn tiếp tục
-                        bgImg.onerror = resolve;
+                // Đảm bảo tất cả hình ảnh trong slide được tải xong
+                const allImages = activeSlide.querySelectorAll('img');
+                console.log(`Số lượng hình ảnh trên slide: ${allImages.length}`);
+
+                // Đợi tất cả hình ảnh tải xong
+                for (let i = 0; i < allImages.length; i++) {
+                    const img = allImages[i];
+                    console.log(`Hình ảnh ${i + 1}: ${img.src.substring(0, 50)}... - Trạng thái: ${img.complete ? 'Đã tải' : 'Đang tải'}`);
+
+                    if (!img.complete) {
+                        await new Promise((resolve) => {
+                            img.onload = resolve;
+                            img.onerror = resolve;
+                            setTimeout(resolve, 3000); // Timeout 3 giây
+                        });
                     }
-                });
+                }
+
+                console.log("Tất cả hình ảnh đã tải xong, bắt đầu tạo canvas");
 
                 // Sử dụng html2canvas với các tùy chọn cải tiến
                 const canvas = await html2canvas(activeSlide, {
@@ -816,8 +857,11 @@
                     scale: 2 // Tăng độ phân giải
                 });
 
+                console.log("Canvas được tạo thành công:", canvas.width, "x", canvas.height);
+
                 // Chuyển đổi canvas thành blob và tải xuống
                 canvas.toBlob(function (blob) {
+                    console.log("Blob được tạo với kích thước:", blob.size, "bytes");
                     saveAs(blob, `Thu_moi_${memberName.replace(/\s+/g, '_')}.png`);
 
                     // Khôi phục trạng thái ban đầu
@@ -827,7 +871,7 @@
                 }, 'image/png', 1.0);
             } catch (error) {
                 console.error("Lỗi khi tải ảnh:", error);
-                alert("Có lỗi khi tải ảnh. Vui lòng thử lại.");
+                alert("Có lỗi khi tải ảnh. Vui lòng thử lại. Lỗi: " + error.message);
 
                 // Khôi phục trạng thái ban đầu
                 $('#downloadCurrentText').removeClass('d-none');

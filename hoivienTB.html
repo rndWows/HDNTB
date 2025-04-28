@@ -629,10 +629,44 @@
             generateInvitationCards();
         });
 
-        // Generate invitation cards function - Cải tiến phương pháp render
+        // Thêm hàm convertImageToDataURL
+        function convertImageToDataURL(imageUrl, callback) {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+
+            img.onload = function () {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+
+                try {
+                    const dataURL = canvas.toDataURL('image/png');
+                    callback(dataURL);
+                } catch (e) {
+                    console.error("Không thể chuyển đổi hình ảnh sang Data URL", e);
+                    callback(null);
+                }
+            };
+
+            img.onerror = function () {
+                console.error("Không thể tải hình ảnh:", imageUrl);
+                callback(null);
+            };
+
+            // Thêm tham số ngẫu nhiên để tránh cache
+            img.src = imageUrl + (imageUrl.includes('?') ? '&' : '?') + 'nocache=' + Math.random();
+        }
+
+        // Sửa hàm generateInvitationCards
         function generateInvitationCards() {
             const carouselContainer = $('#invitationCarousel');
             carouselContainer.empty();
+
+            // Hiển thị thông báo đang tải
+            carouselContainer.html('<div class="text-center p-5"><div class="spinner-border" role="status"></div><p class="mt-2">Đang tải thẻ mời...</p></div>');
 
             // Kiểm tra ảnh nền đã tải chưa
             if (!backgroundImage.complete) {
@@ -640,30 +674,103 @@
                 return;
             }
 
+            let cardsLoaded = 0;
+            const totalCards = selectedMembers.length;
+
             selectedMembers.forEach((member, index) => {
-                const invitationCard = `
-                    <div class="carousel-item ${index === 0 ? 'active' : ''}" data-index="${index}">
-                        <div class="invitation-card">
-                            <img src="${backgroundUrl}" class="invitation-bg" alt="Background" crossorigin="anonymous">
-                            <div class="invitation-content">
-                                <!-- Member info overlay - positioned exactly like in the example -->
-                                <div class="member-info">
-                                    <div style="font-size: 15px; line-height: 1.5; color: #ffea00; font-weight: bold;">
-                                        Hội viên ${(member['Tên hội viên'] || '').split(' ').map(word =>
+                // Format tên hội viên
+                const memberName = (member['Tên hội viên'] || '').split(' ').map(word =>
                     word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                ).join(' ')}
-                                    </div>
-                                    <div style="font-size: 15px; font-weight: bold;">
-                                        ${member['Chức vụ (Cty)']} - ${member['Công ty']}
-                                    </div>
+                ).join(' ');
+
+                // Tạo template thẻ mời với hình ở vị trí khung vàng
+                const createInvitationCard = (memberImageSrc) => {
+                    // CSS cho hình trong khung vàng
+                    const imageStyle = memberImageSrc ?
+                        `
+                position: absolute; 
+                top: 40%; 
+                left: 50%; 
+                transform: translate(-50%, -50%); 
+                width: 230px; 
+                height: 230px; 
+                object-fit: cover; 
+                border: 2px solid gold; 
+                border-radius: 50%;
+                ` : '';
+
+                    // Tạo khung vàng để chứa hình (nếu không có hình thì khung vẫn hiển thị)
+                    const squareStyle = `
+                position: absolute; 
+                top: 40%; 
+                left: 50%; 
+                transform: translate(-50%, -50%); 
+                width: 230px; 
+                height: 230px; 
+                object-fit: cover; 
+                border: 2px solid gold; 
+                border-radius: 50%;
+                ${!memberImageSrc ? 'background-color: rgba(255, 255, 255, 0.1);' : ''}
+            `;
+
+                    return `
+                <div class="carousel-item ${index === 0 ? 'active' : ''}" data-index="${index}">
+                    <div class="invitation-card">
+                        <img src="${backgroundUrl}" class="invitation-bg" alt="Background" crossorigin="anonymous">
+                        <div class="invitation-content">
+                            <!-- Khung vàng (hiển thị nếu không có hình) -->
+                            ${!memberImageSrc ? `<div style="${squareStyle}"></div>` : ''}
+                            
+                            <!-- Hình hội viên ở vị trí khung vàng -->
+                            ${memberImageSrc ? `<img src="${memberImageSrc}" style="${imageStyle}" alt="${memberName}" />` : ''}
+                            
+                            <!-- Các thông tin hiện tại - không thay đổi -->
+                            <div class="member-info">
+                                <div style="font-size: 15px; line-height: 1.7; color: #ffea00; font-weight: bold;">
+                                    Hội viên ${memberName}
+                                </div>
+                                <div style="font-size: 12px; font-weight: bold;">
+                                    ${member['Chức vụ (Cty)']} - ${member['Công ty']}
                                 </div>
                             </div>
                         </div>
-                        <div class="text-center mt-2">Thư mời cho ${member['Tên hội viên'] || 'Hội viên'}</div>
                     </div>
-                `;
+                    <div class="text-center mt-2">Thư mời cho ${memberName || 'Hội viên'}</div>
+                </div>
+            `;
+                };
 
-                carouselContainer.append(invitationCard);
+                // Xử lý hình ảnh hội viên nếu có
+                if (member['Hình hội viên']) {
+                    const baseUrl = 'https://www.appsheet.com/template/gettablefileurl';
+                    const params = new URLSearchParams({
+                        appName: 'HDNTháiBìnhMiềnNam-925719472',
+                        tableName: 'HV_NCC_KH',
+                        fileName: member['Hình hội viên'].trim()
+                    });
+                    const imageUrl = `${baseUrl}?${params.toString()}`;
+
+                    // Chuyển đổi URL thành Data URL để tránh lỗi CORS
+                    convertImageToDataURL(imageUrl, function (dataUrl) {
+                        if (index === 0) carouselContainer.empty(); // Xóa spinner khi card đầu tiên đã sẵn sàng
+                        carouselContainer.append(createInvitationCard(dataUrl));
+
+                        cardsLoaded++;
+                        if (cardsLoaded === totalCards) {
+                            // Tất cả các thẻ đã được tải xong
+                            console.log("Đã tạo tất cả thẻ mời thành công");
+                        }
+                    });
+                } else {
+                    if (index === 0) carouselContainer.empty(); // Xóa spinner nếu là card đầu tiên
+                    carouselContainer.append(createInvitationCard(null));
+
+                    cardsLoaded++;
+                    if (cardsLoaded === totalCards) {
+                        // Tất cả các thẻ đã được tải xong
+                        console.log("Đã tạo tất cả thẻ mời thành công");
+                    }
+                }
             });
 
             invitationModal.show();

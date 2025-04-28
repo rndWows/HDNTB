@@ -84,7 +84,7 @@
 
         .member-info {
             position: absolute;
-            top: 59%;
+            top: 58%;
             width: 100%;
             text-align: center;
             font-family: 'Noto Sans', sans-serif;
@@ -265,7 +265,7 @@
         const appId = '4dc0f883-9c1c-4d4a-81aa-4bd7971b78dd';
         const accessKey = 'V2-W3bVS-xCeBf-DSk9A-U3pVV-B5C41-0gBhu-Z1bQL-j6kNl';
         const region = 'www';
-        const backgroundUrl = 'https://rndwows.github.io/HDNTB/nenTB.jpg';
+        const backgroundUrl = 'https://rndwows.github.io/HDNTB/nenTBmoi.jpg';
 
         // Store all members and pagination state
         let allMembers = [];
@@ -351,6 +351,9 @@
                 renderTable();
                 renderPagination();
 
+                // Bắt đầu tải trước hình ảnh hội viên
+                preloadAllMemberImages();
+
                 $('#loading').hide();
                 $('#tableContainer').show();
             } catch (error) {
@@ -358,6 +361,150 @@
                 $('#loading').hide();
                 $('#error').show().text(`Lỗi khi tải dữ liệu: ${error.message}`);
             }
+        }
+
+        // Thêm div hiển thị trạng thái tải hình ảnh
+        $('.container').prepend(`
+    <div id="preloadStatus" class="alert alert-info alert-dismissible fade show mb-3" style="display: none;">
+        <strong>Đang tải hình ảnh:</strong> <span id="preloadProgress">0</span>/<span id="preloadTotal">0</span> hình
+        <div class="progress mt-2">
+            <div id="preloadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+`);
+
+        // Cập nhật hàm tải trước tất cả hình ảnh hội viên
+        function preloadAllMemberImages() {
+            console.log("Đang tải trước tất cả hình ảnh hội viên...");
+            const imagePromises = [];
+            const totalImages = allMembers.filter(member => member['Hình hội viên']).length;
+            let loadedImages = 0;
+
+            // Hiển thị thông báo tải trước
+            $('#preloadTotal').text(totalImages);
+            $('#preloadStatus').show();
+
+            allMembers.forEach(member => {
+                if (member['Hình hội viên']) {
+                    const baseUrl = 'https://www.appsheet.com/template/gettablefileurl';
+                    const params = new URLSearchParams({
+                        appName: 'HDNTháiBìnhMiềnNam-925719472',
+                        tableName: 'HV_NCC_KH',
+                        fileName: member['Hình hội viên'].trim()
+                    });
+                    const imageUrl = `${baseUrl}?${params.toString()}`;
+
+                    // Tạo promise cho mỗi hình ảnh
+                    const promise = new Promise((resolve) => {
+                        convertImageToDataURL(imageUrl, (dataUrl) => {
+                            // Lưu trữ data URL với hội viên để sử dụng sau này
+                            member._preloadedImage = dataUrl;
+
+                            // Cập nhật tiến trình
+                            loadedImages++;
+                            const percent = Math.round((loadedImages / totalImages) * 100);
+                            $('#preloadProgress').text(loadedImages);
+                            $('#preloadProgressBar').css('width', `${percent}%`);
+
+                            resolve();
+                        });
+                    });
+
+                    imagePromises.push(promise);
+                }
+            });
+
+            // Đợi tất cả hình ảnh được xử lý
+            Promise.all(imagePromises).then(() => {
+                console.log("Tất cả hình ảnh hội viên đã được tải trước thành công");
+                // Ẩn thông báo sau 3 giây
+                setTimeout(() => {
+                    $('#preloadStatus').fadeOut();
+                }, 3000);
+            });
+        }
+
+        // Cải thiện hàm tải hình ảnh
+        function convertImageToDataURL(imageUrl, callback) {
+            // Thêm timestamp để tránh vấn đề cache
+            const cacheBuster = `&t=${new Date().getTime()}`;
+            const originalUrl = imageUrl + cacheBuster;
+
+            // Thử phương pháp 1: Yêu cầu CORS trực tiếp với credentials
+            const img1 = new Image();
+            img1.crossOrigin = "anonymous";
+
+            img1.onload = function () {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img1.width;
+                    canvas.height = img1.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img1, 0, 0);
+                    const dataURL = canvas.toDataURL('image/png');
+                    callback(dataURL);
+                } catch (e) {
+                    console.error("Phương pháp 1 thất bại:", e);
+                    tryMethod2();
+                }
+            };
+
+            img1.onerror = tryMethod2;
+
+            // Phương pháp 2: Sử dụng CORS proxy
+            function tryMethod2() {
+                console.log("Đang thử phương pháp 2 với CORS proxy...");
+                // Thử nhiều CORS proxy theo thứ tự
+                const corsProxies = [
+                    'https://corsproxy.io/?',
+                    'https://cors-anywhere.herokuapp.com/',
+                    'https://api.allorigins.win/raw?url='
+                ];
+
+                let proxyIndex = 0;
+                tryNextProxy();
+
+                function tryNextProxy() {
+                    if (proxyIndex >= corsProxies.length) {
+                        console.error("Tất cả phương pháp proxy đều thất bại");
+                        // Trở về null để xử lý hình placeholder sau này
+                        callback(null);
+                        return;
+                    }
+
+                    const proxyUrl = corsProxies[proxyIndex] + encodeURIComponent(originalUrl);
+                    const img2 = new Image();
+                    img2.crossOrigin = "anonymous";
+
+                    img2.onload = function () {
+                        try {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = img2.width;
+                            canvas.height = img2.height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img2, 0, 0);
+                            const dataURL = canvas.toDataURL('image/png');
+                            callback(dataURL);
+                        } catch (e) {
+                            console.error(`Proxy ${proxyIndex + 1} thất bại:`, e);
+                            proxyIndex++;
+                            tryNextProxy();
+                        }
+                    };
+
+                    img2.onerror = function () {
+                        console.error(`Proxy ${proxyIndex + 1} không thể tải hình ảnh`);
+                        proxyIndex++;
+                        tryNextProxy();
+                    };
+
+                    img2.src = proxyUrl;
+                }
+            }
+
+            // Bắt đầu với phương pháp 1
+            img1.src = originalUrl;
         }
 
         // Function to render table with current page data
@@ -629,71 +776,7 @@
             generateInvitationCards();
         });
 
-        // Thêm hàm convertImageToDataURL
-        function convertImageToDataURL(imageUrl, callback) {
-            // Thử sử dụng proxy CORS nếu có thể
-            const corsProxyUrl = 'https://corsproxy.io/?';
-            const urlToFetch = corsProxyUrl + encodeURIComponent(imageUrl);
-
-            console.log("Đang tải hình từ URL:", urlToFetch);
-
-            const img = new Image();
-            img.crossOrigin = "Anonymous";
-
-            img.onload = function () {
-                console.log("Hình đã tải xong, kích thước:", img.width, "x", img.height);
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-
-                try {
-                    const dataURL = canvas.toDataURL('image/png');
-                    callback(dataURL);
-                } catch (e) {
-                    console.error("Không thể chuyển đổi hình ảnh sang Data URL:", e);
-                    callback(null);
-                }
-            };
-
-            img.onerror = function () {
-                console.error("Không thể tải hình ảnh, thử lại với URL gốc");
-                // Thử lại với URL gốc
-                const imgRetry = new Image();
-                imgRetry.crossOrigin = "Anonymous";
-
-                imgRetry.onload = function () {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = imgRetry.width;
-                    canvas.height = imgRetry.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(imgRetry, 0, 0);
-
-                    try {
-                        const dataURL = canvas.toDataURL('image/png');
-                        callback(dataURL);
-                    } catch (e) {
-                        console.error("Không thể chuyển đổi hình lần thứ 2:", e);
-                        callback(null);
-                    }
-                };
-
-                imgRetry.onerror = function () {
-                    console.error("Không thể tải hình ảnh lần thứ 2:", imageUrl);
-                    callback(null);
-                };
-
-                // Thêm tham số ngẫu nhiên để tránh cache
-                imgRetry.src = imageUrl + (imageUrl.includes('?') ? '&' : '?') + 'nocache=' + Math.random();
-            };
-
-            // Thêm tham số ngẫu nhiên để tránh cache
-            img.src = urlToFetch + '&nocache=' + Math.random();
-        }
-
-        // Sửa hàm generateInvitationCards
+        // Cập nhật hàm tạo thẻ mời đại hội
         function generateInvitationCards() {
             const carouselContainer = $('#invitationCarousel');
             carouselContainer.empty();
@@ -721,66 +804,73 @@
                     // CSS cho hình trong khung vàng
                     const imageStyle = memberImageSrc ?
                         `
-                position: absolute; 
-    top: 40%; 
-    left: 50%; 
-    transform: translate(-50%, -50%); 
-    max-width: 220px; 
-    max-height: 220px; 
-    width: auto;
-    height: auto;
-    object-fit: contain; 
-    border: 2px solid gold; 
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 10px;
-                ` : '';
+               position: absolute; 
+               top: 38%; 
+               left: 50%; 
+               transform: translate(-50%, -50%); 
+               max-width: 220px; 
+               max-height: 220px; 
+               width: auto;
+               height: auto;
+               object-fit: contain; 
+               border: 2px solid gold; 
+               background-color: rgba(0, 0, 0, 0.2);
+               border-radius: 10px;
+                       ` : '';
 
                     // Tạo khung vàng để chứa hình (nếu không có hình thì khung vẫn hiển thị)
                     const squareStyle = `
-                position: absolute; 
-    top: 40%; 
-    left: 50%; 
-    transform: translate(-50%, -50%); 
-    max-width: 220px; 
-    max-height: 220px; 
-    width: auto;
-    height: auto;
-    object-fit: contain; 
-    border: 2px solid gold; 
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 10px;
-                ${!memberImageSrc ? 'background-color: rgba(255, 255, 255, 0.1);' : ''}
-            `;
+               position: absolute; 
+               top: 38%; 
+               left: 50%; 
+               transform: translate(-50%, -50%); 
+               width: 220px; 
+               height: 220px; 
+               border: 2px solid gold; 
+               background-color: rgba(0, 0, 0, 0.2);
+               border-radius: 10px;
+               ${!memberImageSrc ? 'background-color: rgba(255, 255, 255, 0.1);' : ''}
+                   `;
 
                     return `
-                <div class="carousel-item ${index === 0 ? 'active' : ''}" data-index="${index}">
-                    <div class="invitation-card">
-                        <img src="${backgroundUrl}" class="invitation-bg" alt="Background" crossorigin="anonymous">
-                        <div class="invitation-content">
-                            <!-- Khung vàng (hiển thị nếu không có hình) -->
-                            ${!memberImageSrc ? `<div style="${squareStyle}"></div>` : ''}
-                            
-                            <!-- Hình hội viên ở vị trí khung vàng -->
-                            ${memberImageSrc ? `<img src="${memberImageSrc}" style="${imageStyle}" alt="${memberName}" />` : ''}
-                            
-                            <!-- Các thông tin hiện tại - không thay đổi -->
-                            <div class="member-info">
-                                <div style="font-size: 15px; line-height: 1.7; color: #ffea00; font-weight: bold;">
-                                    Hội viên ${memberName}
-                                </div>
-                                <div style="font-size: 12px; font-weight: bold;">
-                                    ${member['Chức vụ (Cty)']} - ${member['Công ty']}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="text-center mt-2">Thư mời cho ${memberName || 'Hội viên'}</div>
-                </div>
-            `;
+               <div class="carousel-item ${index === 0 ? 'active' : ''}" data-index="${index}">
+                   <div class="invitation-card">
+                       <img src="${backgroundUrl}" class="invitation-bg" alt="Background" crossorigin="anonymous">
+                       <div class="invitation-content">
+                           <!-- Khung vàng (hiển thị nếu không có hình) -->
+                           ${!memberImageSrc ? `<div style="${squareStyle}"></div>` : ''}
+                           
+                           <!-- Hình hội viên ở vị trí khung vàng -->
+                           ${memberImageSrc ? `<img src="${memberImageSrc}" style="${imageStyle}" alt="${memberName}" />` : ''}
+                           
+                           <!-- Các thông tin hiện tại - không thay đổi -->
+                           <div class="member-info">
+                               <div style="font-size: 15px; line-height: 1.7; color: #ffea00; font-weight: bold;">
+                                   Hội viên ${memberName}
+                               </div>
+                               <div style="font-size: 12px; font-weight: bold;">
+                                   ${member['Chức vụ (Cty)']} - ${member['Công ty']}
+                               </div>
+                           </div>
+                       </div>
+                   </div>
+                   <div class="text-center mt-2">Thư mời cho ${memberName || 'Hội viên'}</div>
+               </div>
+                   `;
                 };
 
-                // Xử lý hình ảnh hội viên nếu có
-                if (member['Hình hội viên']) {
+                // Kiểm tra xem có hình đã tải trước chưa
+                if (member._preloadedImage) {
+                    // Sử dụng hình ảnh đã tải trước
+                    if (index === 0) carouselContainer.empty();
+                    carouselContainer.append(createInvitationCard(member._preloadedImage));
+                    cardsLoaded++;
+                    if (cardsLoaded === totalCards) {
+                        console.log("Đã tạo tất cả thẻ mời thành công");
+                    }
+                }
+                // Nếu không có hình đã tải trước nhưng có tên hình
+                else if (member['Hình hội viên']) {
                     const baseUrl = 'https://www.appsheet.com/template/gettablefileurl';
                     const params = new URLSearchParams({
                         appName: 'HDNTháiBìnhMiềnNam-925719472',
@@ -815,6 +905,7 @@
             invitationModal.show();
         }
 
+        // Cập nhật hàm tải ảnh hiện tại
         $('#downloadCurrentBtn').on('click', async function () {
             try {
                 // Hiện trạng thái đang tải
@@ -822,65 +913,52 @@
                 $('#downloadCurrentSpinner').removeClass('d-none');
                 $('#downloadCurrentBtn').prop('disabled', true);
 
-                const activeSlide = $('.carousel-item.active .invitation-card')[0];
-                const memberIndex = $('.carousel-item.active').data('index');
-                const memberName = selectedMembers[memberIndex]['Tên hội viên'] || 'invitation';
+                const activeSlideIndex = $('.carousel-item.active').data('index');
+                const member = selectedMembers[activeSlideIndex];
+                const memberName = member['Tên hội viên'] || 'invitation';
+                const formattedMemberName = (memberName || '').split(' ').map(word =>
+                    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                ).join(' ');
 
-                console.log("Đang tải ảnh hiện tại cho: " + memberName);
+                console.log("Đang tải ảnh hiện tại cho: " + formattedMemberName);
 
-                // Đảm bảo tất cả hình ảnh trong slide được tải xong
-                const allImages = activeSlide.querySelectorAll('img');
-                console.log(`Số lượng hình ảnh trên slide: ${allImages.length}`);
+                // Lấy phần tử DOM cần chụp - chính là thẻ mời hiện tại
+                const cardElement = $('.carousel-item.active .invitation-card').get(0);
 
-                // Đợi tất cả hình ảnh tải xong
-                for (let i = 0; i < allImages.length; i++) {
-                    const img = allImages[i];
-                    console.log(`Hình ảnh ${i + 1}: ${img.src.substring(0, 50)}... - Trạng thái: ${img.complete ? 'Đã tải' : 'Đang tải'}`);
-
-                    if (!img.complete) {
-                        await new Promise((resolve) => {
-                            img.onload = resolve;
-                            img.onerror = resolve;
-                            setTimeout(resolve, 3000); // Timeout 3 giây
-                        });
-                    }
-                }
-
-                console.log("Tất cả hình ảnh đã tải xong, bắt đầu tạo canvas");
-
-                // Sử dụng html2canvas với các tùy chọn cải tiến
-                const canvas = await html2canvas(activeSlide, {
-                    useCORS: true,
+                // Sử dụng html2canvas để chụp thẻ mời đúng như đang hiển thị
+                html2canvas(cardElement, {
+                    scale: 2, // Tăng độ phân giải lên gấp đôi để rõ nét hơn
                     allowTaint: true,
-                    backgroundColor: null,
-                    logging: true,
-                    scale: 2 // Tăng độ phân giải
+                    useCORS: true,
+                    backgroundColor: null // Giữ nguyên nền trong suốt nếu có
+                }).then(function (canvas) {
+                    // Chuyển canvas thành blob và tải xuống
+                    canvas.toBlob(function (blob) {
+                        if (!blob) {
+                            throw new Error("Không thể tạo file ảnh");
+                        }
+                        console.log("Tạo file thành công:", blob.size, "bytes");
+                        saveAs(blob, `Thu_moi_${formattedMemberName.replace(/\s+/g, '_')}.png`);
+
+                        // Khôi phục trạng thái nút
+                        $('#downloadCurrentText').removeClass('d-none');
+                        $('#downloadCurrentSpinner').addClass('d-none');
+                        $('#downloadCurrentBtn').prop('disabled', false);
+                    }, 'image/png', 1.0);
                 });
-
-                console.log("Canvas được tạo thành công:", canvas.width, "x", canvas.height);
-
-                // Chuyển đổi canvas thành blob và tải xuống
-                canvas.toBlob(function (blob) {
-                    console.log("Blob được tạo với kích thước:", blob.size, "bytes");
-                    saveAs(blob, `Thu_moi_${memberName.replace(/\s+/g, '_')}.png`);
-
-                    // Khôi phục trạng thái ban đầu
-                    $('#downloadCurrentText').removeClass('d-none');
-                    $('#downloadCurrentSpinner').addClass('d-none');
-                    $('#downloadCurrentBtn').prop('disabled', false);
-                }, 'image/png', 1.0);
             } catch (error) {
-                console.error("Lỗi khi tải ảnh:", error);
-                alert("Có lỗi khi tải ảnh. Vui lòng thử lại. Lỗi: " + error.message);
+                console.error("Lỗi khi tạo ảnh:", error);
+                alert("Có lỗi khi tạo ảnh: " + error.message);
 
-                // Khôi phục trạng thái ban đầu
+                // Khôi phục trạng thái nút
                 $('#downloadCurrentText').removeClass('d-none');
                 $('#downloadCurrentSpinner').addClass('d-none');
                 $('#downloadCurrentBtn').prop('disabled', false);
             }
         });
 
-        // Cải tiến tải tất cả ảnh
+        // Cập nhật hàm tải tất cả ảnh
+        // Hàm tải tất cả ảnh (giữ lại phiên bản đầu tiên)
         $('#downloadAllBtn').on('click', async function () {
             const zip = new JSZip();
             const totalMembers = selectedMembers.length;
@@ -892,70 +970,92 @@
             $('#downloadProgress').show();
             $('.progress-bar').css('width', '0%');
 
+            // Thêm thông báo tiến trình chi tiết
+            if (!$('#processingInfo').length) {
+                $('#downloadProgress').after(`
+    <div id="processingInfo" class="alert alert-info mt-2">
+        <span id="currentMemberInfo">Đang chuẩn bị...</span>
+    </div>
+`);
+            } else {
+                $('#processingInfo').show();
+            }
+
             try {
-                // Xử lý từng thẻ, sử dụng Promise để có thể chờ đợi
                 for (let i = 0; i < totalMembers; i++) {
                     // Cập nhật thanh tiến trình
                     const progress = Math.round((i / totalMembers) * 100);
                     $('.progress-bar').css('width', `${progress}%`);
 
-                    // Đặt thẻ hiện tại để active (để hiển thị chính xác)
-                    $('.carousel-item').removeClass('active');
-                    $(`.carousel-item[data-index="${i}"]`).addClass('active');
+                    const member = selectedMembers[i];
+                    const memberName = member['Tên hội viên'] || `member_${i}`;
+                    const formattedMemberName = (memberName || '').split(' ').map(word =>
+                        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                    ).join(' ');
 
-                    // Đợi một chút để đảm bảo DOM được cập nhật
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    // Cập nhật thông tin xử lý hiện tại
+                    $('#currentMemberInfo').text(`Đang xử lý thẻ ${i + 1}/${totalMembers}: ${formattedMemberName}`);
+                    console.log(`Đang xử lý thẻ ${i + 1}/${totalMembers}: ${formattedMemberName}`);
 
-                    const memberName = selectedMembers[i]['Tên hội viên'] || `member_${i}`;
-                    const card = $(`.carousel-item[data-index="${i}"] .invitation-card`)[0];
+                    // Di chuyển carousel đến thẻ có index tương ứng
+                    $('.carousel').carousel(i);
 
-                    // Đảm bảo ảnh nền đã được tải xong
-                    await new Promise((resolve) => {
-                        const bgImg = card.querySelector('.invitation-bg');
-                        if (bgImg.complete) {
-                            resolve();
-                        } else {
-                            bgImg.onload = resolve;
-                            bgImg.onerror = resolve;
-                        }
+                    // Increase from 200ms to at least 500ms or 1000ms
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+
+                    // Lấy thẻ mời hiện tại
+                    const cardElement = $('.carousel-item.active .invitation-card').get(0);
+
+                    // Chụp thẻ mời bằng html2canvas
+                    const canvas = await html2canvas(cardElement, {
+                        scale: 2, // Tăng độ phân giải lên gấp đôi
+                        allowTaint: true,
+                        useCORS: true,
+                        backgroundColor: null
                     });
 
-                    // Sử dụng html2canvas với cấu hình nâng cao
-                    try {
-                        const canvas = await html2canvas(card, {
-                            useCORS: true,
-                            allowTaint: true,
-                            backgroundColor: null,
-                            scale: 2, // Tăng độ phân giải
-                            logging: false
-                        });
+                    // Chuyển canvas thành blob
+                    const blob = await new Promise(resolve => {
+                        canvas.toBlob(resolve, 'image/png', 1.0);
+                    });
 
-                        // Chuyển đổi canvas thành blob
-                        const blob = await new Promise(resolve => {
-                            canvas.toBlob(resolve, 'image/png', 1.0);
-                        });
-
-                        // Thêm vào tệp zip
-                        zip.file(`Thu_moi_${memberName.replace(/\s+/g, '_')}.png`, blob);
-                    } catch (err) {
-                        console.error(`Error processing card ${i}:`, err);
-                        // Tiếp tục xử lý các thẻ tiếp theo ngay cả khi có lỗi
+                    if (blob) {
+                        zip.file(`Thu_moi_${formattedMemberName.replace(/\s+/g, '_')}.png`, blob);
+                        console.log(`Đã thêm thẻ của ${formattedMemberName} vào ZIP`);
+                    } else {
+                        console.error(`Không thể tạo ảnh cho ${formattedMemberName}`);
                     }
                 }
 
+                // Cập nhật trạng thái
+                $('#currentMemberInfo').text('Đang tạo file ZIP...');
+
                 // Tạo file zip và tải xuống
-                const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+                console.log("Đang tạo file ZIP...");
+                const zipBlob = await zip.generateAsync({
+                    type: 'blob',
+                    compression: 'DEFLATE'
+                });
+                console.log("Đã tạo file ZIP thành công, kích thước:", zipBlob.size, "bytes");
                 saveAs(zipBlob, 'Thu_moi_dai_hoi.zip');
+
+                // Hiển thị tiến trình hoàn tất
+                $('.progress-bar').css('width', '100%');
+                $('#currentMemberInfo').text(`Hoàn thành! Đã tạo ${totalMembers} thẻ mời.`);
 
                 // Khôi phục trạng thái ban đầu
                 $('#downloadAllText').removeClass('d-none');
                 $('#downloadAllSpinner').addClass('d-none');
                 $('#downloadAllBtn').prop('disabled', false);
-                $('#downloadProgress').hide();
+                setTimeout(() => {
+                    $('#downloadProgress').hide();
+                    $('#processingInfo').fadeOut();
+                }, 3000);
 
             } catch (error) {
                 console.error("Lỗi khi tạo file ZIP:", error);
-                alert("Có lỗi khi tạo file ZIP. Vui lòng thử lại.");
+                $('#currentMemberInfo').text(`Lỗi: ${error.message}`);
+                alert("Có lỗi khi tạo file ZIP. Vui lòng thử lại. Chi tiết lỗi: " + error.message);
 
                 // Khôi phục trạng thái ban đầu
                 $('#downloadAllText').removeClass('d-none');
@@ -982,7 +1082,7 @@
             }
         });
 
-        // Add this to your JavaScript
+        // Xử lý khi thay đổi số lượng hiển thị mỗi trang
         $('#itemsPerPageSelector').on('change', function () {
             const selectedValue = $(this).val();
             if (selectedValue === 'all') {
